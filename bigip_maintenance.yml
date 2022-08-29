@@ -1,0 +1,101 @@
+---
+
+- hosts: all
+
+  vars_prompt:
+  - name: "operacao"
+    prompt: "O que você gostaria de fazer?\n1- Ativar membro de um pool\n2- Desativar membro de um pool\n"
+    private: no
+
+  vars:
+    provider:
+      #transport: cli
+      user: admin
+      password: senhatemp
+      server: "{{ inventory_hostname }}"
+      server_port: 22
+      #ssh_keyfile: ./config/netsec_testes_infra.pem
+      validate_certs: False
+    - name: "op1"
+      private: no
+    - name: "pool_name"
+      private: no
+    - name: "member_name"
+      private: no
+
+
+  tasks:
+
+  - name: atribuir valor op1
+    set_fact:
+          op1: "{{ ativar_desativar }}"
+
+
+
+
+  - name: Query BIG-IP facts
+    bigip_device_facts:
+      provider: "{{provider}}"
+      gather_subset:
+       - ltm-pools
+    register: bigip_facts
+
+  
+  # - name: Display Pools available
+  #   debug: "msg={{item.name}}"
+  #   loop: "{{bigip_facts.ltm_pools}}"
+  #   loop_control:
+  #     label: "{{item.name}}"
+
+  # - pause:
+  #    prompt: "Digite o nome do pool escolhido"
+  #   register: pool_name
+
+
+  
+  - name: Store pool name in a variable
+    set_fact:
+     pool_name: "{{ nome_pool }}"
+
+  - name: guardar nome do membro do pool em variavel
+    set_fact:
+        member_name: "{{ pool_member }}"
+
+  # - name: "Show members belonging to pool {{pool_name.user_input}}"
+  #   debug: "msg={{item}}"
+  #   loop: "{{bigip_facts.ltm_pools | json_query(query_string)}}"
+  #   vars:
+  #    query_string: "[?name=='{{pool_name.user_input}}'].members[*].name[]"
+  #    #pool_name: "{{ pool_name.user_input }}"
+  
+  
+
+  # - pause:
+  #     prompt: "Digite o nome do membro do pool no seguinte formato  'nome_do_membro:porta' "
+  #   register: member_name
+
+  # - name: "print a variable"
+  #   debug:
+  #      msg: "O que tem dentro da variavel eh isso aqui {{ item.split(':')[0] }}" 
+
+  - name: Enable pool member {{member_name}}
+    when: op1 == "Ativar " 
+    bigip_pool_member:
+      provider: "{{provider}}"
+      state: "enabled"
+      name: "{{member_name.split(':')[0]}}"
+      pool: "{{pool_name}}"
+      port: "{{member_name.split(':')[1]}}"
+      host: "{{member_name.split(':'[0])}}"
+    #when: '"all" not in member_name.user_input'
+
+  - name: Disable pool member {{member_name}}
+    when: (op1 == "Desativar ")
+    bigip_pool_member:
+      provider: "{{provider}}"
+      state: "disabled"
+      name: "{{member_name.split(':')[0]}}"
+      pool: "{{pool_name}}"
+      port: "{{member_name.split(':')[1]}}"
+      host: "{{member_name.split(':'[0])}}"
+    #when: '"all" not in member_name.user_input'
